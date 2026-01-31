@@ -96,6 +96,7 @@ jobs:
           mode: ${mode}
           config_path: .reviewbot.json
           review_api_url: ${endpoint}
+          github_token: \${{ github.token }}
         env:
           GITHUB_TOKEN: \${{ github.token }}
 `;
