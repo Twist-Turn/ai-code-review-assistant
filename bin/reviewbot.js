@@ -7,7 +7,7 @@ function usage() {
 ReviewBot installer
 
 Usage:
-  npx --yes github:Twist-Turn/ai-code-review-assistant install --endpoint https://YOUR_DOMAIN/review
+  npx --yes github:Twist-Turn/ai-code-review-assistant install --endpoint https://YOUR_DOMAIN/.netlify/functions/review
 
 Options:
   --endpoint, --review-api-url   Review API URL (required)
@@ -119,6 +119,15 @@ function defaultConfig() {
   }, null, 2) + "\n";
 }
 
+function normalizeEndpoint(raw) {
+  if (!raw) return raw;
+  const trimmed = String(raw).trim().replace(/\/+$/, "");
+  const netlifyPath = "/.netlify/functions/review";
+  if (trimmed.endsWith(netlifyPath)) return trimmed;
+  if (trimmed.endsWith("/review")) return trimmed.replace(/\/review$/, netlifyPath);
+  return trimmed;
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const cmd = (args._[0] || "").toLowerCase();
@@ -132,9 +141,13 @@ async function main() {
     process.exit(1);
   }
 
-  const endpoint = args.endpoint || args["review-api-url"] || args["review_api_url"];
+  const rawEndpoint = args.endpoint || args["review-api-url"] || args["review_api_url"];
+  const endpoint = normalizeEndpoint(rawEndpoint);
+  if (rawEndpoint && rawEndpoint !== endpoint) {
+    console.log(`Normalized endpoint to: ${endpoint}`);
+  }
   if (!endpoint) {
-    console.error("Missing required --endpoint https://YOUR_DOMAIN/review");
+    console.error("Missing required --endpoint https://YOUR_DOMAIN/.netlify/functions/review");
     usage();
     process.exit(1);
   }
