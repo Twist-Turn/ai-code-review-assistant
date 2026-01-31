@@ -58,7 +58,7 @@ sequenceDiagram
 ## Install into any repo (one command)
 Run inside the target repo:
 ```bash
-npx --yes github:Twist-Turn/ai-code-review-assistant install --endpoint https://YOUR_DOMAIN/review
+npx --yes github:Twist-Turn/ai-code-review-assistant install --endpoint https://reviewagent.netlify.app/.netlify/functions/review
 ```
 - Installer writes `.github/workflows/reviewbot.yml` and `.reviewbot.json` in the current folder.
 - Endpoint auto-normalizes to `https://YOUR_DOMAIN/.netlify/functions/review`.
