@@ -1,0 +1,12 @@
+{
+  "name": "ai-code-review-assistant",
+  "version": "1.0.0",
+  "private": false,
+  "description": "GitHub Action + installer for ReviewBot (OIDC-auth Review API).",
+  "bin": {
+    "reviewbot": "bin/reviewbot.js"
+  },
+  "scripts": {
+    "lint": "node -c src/index.js"
+  }
+}

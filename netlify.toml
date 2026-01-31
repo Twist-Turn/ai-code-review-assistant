@@ -1,0 +1,9 @@
+[build]
+  base = "server"
+  functions = "netlify/functions"
+  publish = "public"
+  command = "npm run build --if-present"
+
+[functions]
+  node_bundler = "esbuild"
+  included_files = ["src/**"]

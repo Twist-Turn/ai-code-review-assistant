@@ -1,0 +1,58 @@
+name: "ReviewBot - AI Code Review Assistant"
+description: "Reviews GitHub pull requests using a maintainer-hosted Review API (OIDC auth). Posts summary and inline suggestions."
+author: "Twist-Turn"
+branding:
+  icon: "check-circle"
+  color: "purple"
+
+inputs:
+  review_api_url:
+    description: "Your Review API endpoint URL (e.g. https://your-domain/review)"
+    required: false
+  oidc_audience:
+    description: "OIDC audience string your Review API expects"
+    required: false
+    default: "reviewbot-api"
+  github_token:
+    description: "GitHub token used to read PR details and post comments (defaults to env.GITHUB_TOKEN)"
+    required: false
+
+  config_path:
+    description: "Path to the ReviewBot config file"
+    required: false
+    default: ".reviewbot.json"
+  focus:
+    description: "Optional focus (security|performance|testing|design|readability)"
+    required: false
+  mode:
+    description: "safe (recommended for public repos) or trusted"
+    required: false
+    default: "safe"
+  dry_run:
+    description: "If true, do not post comments, only logs"
+    required: false
+    default: "false"
+  post_inline:
+    description: "If true, post inline PR review comments"
+    required: false
+    default: "true"
+  post_summary:
+    description: "If true, post a single summary comment"
+    required: false
+    default: "true"
+  create_check_run:
+    description: "If true, create a GitHub Check Run with the summary"
+    required: false
+    default: "false"
+  max_comments:
+    description: "Maximum inline comments to post"
+    required: false
+    default: "10"
+  min_severity:
+    description: "Minimum severity for inline comments (nit|low|medium|high|critical)"
+    required: false
+    default: "medium"
+
+runs:
+  using: "node20"
+  main: "src/index.js"
