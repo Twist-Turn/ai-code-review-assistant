@@ -1,113 +1,63 @@
-# ReviewBot — AI Code Review Assistant (Multi-user, No Secrets in Consumer Repos)
+# ReviewBot — Serverless AI code review with GitHub OIDC (no repo secrets)
 
-This project contains **two parts**:
+Built to showcase production-ready AI review with zero shared secrets. Two pieces:
 
-1. **GitHub Action** (in repo root): runs on PRs and calls your Review API using **GitHub OIDC** (no per-repo secrets).
-2. **Review API server** (in `server/`): verifies the GitHub OIDC token, enforces allow-lists & quotas, then calls **OpenAI** with Structured Outputs.
+1) **GitHub Action** (root) — packages diffs, uses GitHub OIDC, posts summary + inline comments.  
+2) **Review API** (server/) — Netlify/Node function that verifies OIDC, enforces allow-list + quota, and calls OpenAI Structured Outputs.
 
-## What this gives you
+## Highlights
+- No secrets in consuming repos: short-lived GitHub OIDC token only.
+- One-line installer: drops workflow + config into any repo.
+- Netlify-ready: repo ships `netlify.toml` and a function at `/.netlify/functions/review`.
+- Safety controls: org/repo allow-lists, per-repo quotas, IP rate limit, severity & confidence filters.
+- Action has zero external deps (plain Node), optimized for PR latency.
 
-- ✅ Works for **multiple repos/users** without requiring them to add an OpenAI key secret
-- ✅ Safer auth via **GitHub OIDC** (short-lived identity token)
-- ✅ Configurable: focus areas, ignore paths, severity thresholds, comment caps
-- ✅ Posts:
-  - a **summary PR comment** (updated in-place)
-  - optional **inline comments** (filtered by severity/confidence)
-  - optional **Check Run**
+## Architecture
+```mermaid
+flowchart TD
+  A[GitHub Action on PR / /review] -->|OIDC token + PR diffs| B[Review API (Netlify Function)]
+  B -->|verify OIDC\nallow-list + quota| C[Review Logic]
+  C -->|prompt with diffs| D[OpenAI Responses API]
+  D -->|structured review JSON| C
+  C -->|summary + inline comments| E[GitHub API]
+```
 
-## Quick start (maintainer)
+## Deploy the Review API (Netlify, easiest)
+1) In Netlify: set Base directory `server`, Functions `netlify/functions`, Publish `public`.  
+2) Env vars (minimum):  
+   - `OPENAI_API_KEY`  
+   - `OIDC_AUDIENCE=reviewbot-api` (or your value)  
+   - Allow-list: `ALLOW_ORGS="your-org"` **or** `ALLOW_REPOS="owner/repo,owner2/repo2"`; keep `ALLOW_ALL=false`.  
+   - Optional: `QUOTA_PER_REPO_PER_DAY`, `RATE_LIMIT_PER_MINUTE`, `OPENAI_MODEL`.
+3) Deploy. Health check: `GET https://YOUR_DOMAIN/.netlify/functions/review/health`.
 
-### A) Deploy the Review API (server/)
-
-1. Go to `server/`
-2. Install deps:
-   ```bash
-   cd server
-   npm install
-   ```
-3. Set environment variables (example):
-   ```bash
-   export OPENAI_API_KEY="YOUR_OPENAI_KEY"
-   export OPENAI_MODEL="gpt-4o-mini"
-   export OIDC_AUDIENCE="reviewbot-api"
-
-   # IMPORTANT: protect your wallet!
-   export ALLOW_ORGS="Twist-Turn"          # allow any repo under these orgs
-   # or: export ALLOW_REPOS="owner/repo,owner2/repo2"
-   export ALLOW_ALL="false"
-
-   export QUOTA_PER_REPO_PER_DAY="200"
-   export RATE_LIMIT_PER_MINUTE="60"
-   export PORT="3000"
-   ```
-4. Run locally:
-   ```bash
-   npm start
-   ```
-5. Verify:
-   - `GET /health` → `{ ok: true }`
-   - `POST /review` is called by the Action
-
-You can deploy the `server/` folder to any Node hosting:
-- Render / Railway / Fly.io / VPS / Docker
-- Use `server/Dockerfile` if you want container deployment.
-
-### B) Publish the GitHub Action
-
-1. Create a GitHub repo (example): `Twist-Turn/ai-code-review-assistant`
-2. Push this project to it (root contains `action.yml` + `src/` (no build step needed))
-3. Create a release tag, e.g. `v1`
-
-> The Action entrypoint is `action.yml` and it runs `src/index.js` (pure Node, no dependencies).
-
-## Quick start (users installing in their repo)
-
-From the root of **their** repo:
-
+## Install into any repo (one command)
+Run inside the target repo:
 ```bash
 npx --yes github:Twist-Turn/ai-code-review-assistant install --endpoint https://YOUR_DOMAIN/review
 ```
+- Installer writes `.github/workflows/reviewbot.yml` and `.reviewbot.json` in the current folder.
+- Endpoint auto-normalizes to `https://YOUR_DOMAIN/.netlify/functions/review`.
+- Workflow passes `github_token: ${{ github.token }}`; ensure `permissions: pull-requests: write` (and `issues: write` for summary comments).
 
-Then:
-
-```bash
-git add .github/workflows/reviewbot.yml .reviewbot.json
-git commit -m "Add ReviewBot"
-git push
-```
-
-Now ReviewBot runs automatically on PRs.  
-Or comment on any PR:
-
-```
-/review
-```
-
-Optional command args:
-
+Trigger manually in PR comments:
 ```
 /review focus=security max_comments=6 min_severity=low
 ```
 
-## Configuration
+## Configure (lightweight)
+Edit `.reviewbot.json` to tune:
+- `policies.ignore_paths` (skip generated dirs)
+- `policies.skip_if_label_present`
+- `review.max_inline_comments`, `review.min_confidence`, `review.min_severity_for_inline`
 
-Users can edit `.reviewbot.json`:
+## Security & limits
+- OpenAI key stays server-side; clients only hold OIDC tokens.
+- Allow-lists + quota + IP rate limiting enabled by default.
+- Keep `ALLOW_ALL=false` unless running in a closed environment.
 
-- `policies.ignore_paths`: skip generated folders
-- `policies.skip_if_label_present`: e.g. `no-ai-review`
-- `review.max_inline_comments`, `review.min_confidence`, etc.
-
-## Security notes (important)
-
-- The **Review API** holds the OpenAI key (server-side). Do not expose it to clients.
-- Keep `ALLOW_ALL=false` unless you intentionally want to accept requests from *any* public repo.
-- Prefer allow-lists:
-  - `ALLOW_ORGS="YourOrg"`
-  - or `ALLOW_REPOS="owner/repo,owner2/repo2"`
-- Use quotas + rate limits to avoid abuse.
-
----
-
-## Dev (Action)
-
-The Action is dependency-free. If you edit code, just commit the changes.
+## Tech stack
+- GitHub Actions (Node 18 runtime, no deps)
+- Netlify Functions (ESM, Express-less handler)
+- OpenAI Responses API with JSON Schema enforcement
+- jose for JWT/JWKS (OIDC), helmet + rate limiting for defense in depth
