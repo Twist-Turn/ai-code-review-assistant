@@ -14,12 +14,36 @@ Built to showcase production-ready AI review with zero shared secrets. Two piece
 
 ## Architecture
 ```mermaid
-flowchart TD
-  A[GitHub Action on PR / /review] -->|OIDC token + PR diffs| B[Review API (Netlify Function)]
-  B -->|verify OIDC\nallow-list + quota| C[Review Logic]
-  C -->|prompt with diffs| D[OpenAI Responses API]
-  D -->|structured review JSON| C
-  C -->|summary + inline comments| E[GitHub API]
+flowchart LR
+  A["GitHub PR event or /review comment"] --> B["GitHub Action - ReviewBot"]
+  B --> C["Fetch PR diff via GitHub API"]
+  B --> D["Request GitHub OIDC JWT"]
+  D --> E["Review API endpoint - Netlify or Server"]
+  E --> F["Verify OIDC JWT and enforce allowlist/quotas"]
+  F --> G["Call OpenAI - Structured Outputs"]
+  G --> E
+  E --> H["Return strict JSON review"]
+  H --> B
+  B --> I["Post PR summary and inline comments"]
+```
+```mermaid
+sequenceDiagram
+  participant Dev as Contributor
+  participant GH as GitHub
+  participant Action as ReviewBot Action
+  participant API as Review API
+  participant OAI as OpenAI
+
+  Dev->>GH: Open/Update PR or comment "/review"
+  GH->>Action: Trigger workflow run
+  Action->>GH: Fetch changed files and patches
+  Action->>GH: Request OIDC token
+  Action->>API: POST /review with OIDC JWT
+  API->>API: Verify JWT and apply allowlist/quotas
+  API->>OAI: Generate structured JSON review
+  OAI-->>API: JSON review
+  API-->>Action: Return review JSON
+  Action->>GH: Post summary and inline comments
 ```
 
 ## Deploy the Review API (Netlify, easiest)
